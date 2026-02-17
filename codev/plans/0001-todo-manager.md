@@ -40,33 +40,34 @@ Implement a Next.js 14+ Todo Manager with localStorage persistence and a Gemini 
 - Set up Next.js 14+ project with TypeScript, App Router, and Tailwind CSS
 - Define the Todo data model and TypeScript types
 - Implement localStorage persistence layer (hooks/utilities)
-- Set up testing infrastructure (Vitest)
+- Set up testing infrastructure (Vitest + React Testing Library)
 
 #### Deliverables
 - [ ] Next.js project initialized with TypeScript and Tailwind
 - [ ] Todo TypeScript types defined
 - [ ] `useTodos` hook with localStorage CRUD operations
-- [ ] Vitest configured and initial tests passing
+- [ ] Vitest configured with jsdom environment and initial tests passing
 - [ ] ESLint configured
 
 #### Implementation Details
 
 **Files to create:**
-- `package.json` — project dependencies
+- `package.json` — project dependencies (includes `@testing-library/react`, `@testing-library/jest-dom`, `jsdom`)
 - `tsconfig.json` — TypeScript config
 - `next.config.ts` — Next.js configuration
 - `tailwind.config.ts` — Tailwind configuration
 - `postcss.config.mjs` — PostCSS for Tailwind
 - `src/app/layout.tsx` — Root layout
-- `src/app/page.tsx` — Main page (placeholder)
+- `src/app/page.tsx` — Main page (placeholder, `"use client"` since it uses stateful hooks)
 - `src/app/globals.css` — Global styles with Tailwind directives
 - `src/types/todo.ts` — Todo interface, NL action types, priority/status enums
 - `src/lib/storage.ts` — localStorage read/write utilities
 - `src/hooks/useTodos.ts` — React hook for CRUD operations (add, update, delete, filter)
 - `src/lib/__tests__/storage.test.ts` — Storage utility tests
 - `src/hooks/__tests__/useTodos.test.ts` — Hook tests
-- `vitest.config.ts` — Vitest configuration
+- `vitest.config.ts` — Vitest configuration with jsdom environment
 - `.eslintrc.json` — ESLint config
+- `.env.example` — Template with `GEMINI_API_KEY=` and `GEMINI_MODEL=gemini-2.0-flash`
 
 **Key types (src/types/todo.ts):**
 - `Todo`: { id, title, description, priority, dueDate, status, createdAt }
@@ -74,19 +75,26 @@ Implement a Next.js 14+ Todo Manager with localStorage persistence and a Gemini 
 - `Status`: "pending" | "completed"
 - `NLAction`: { action: "add" | "update" | "delete" | "filter" | "error", ... }
 
+**Hydration strategy**: The `useTodos` hook initializes with an empty array and loads from localStorage in a `useEffect` on mount. This avoids SSR/hydration mismatch since the server render shows an empty/loading state, then the client hydrates with localStorage data. All interactive components use `"use client"` directive.
+
+**UUID generation**: Use `crypto.randomUUID()` (native, no external dependency).
+
 #### Acceptance Criteria
 - [ ] `npm run build` succeeds
 - [ ] `npm run test` passes all tests
 - [ ] localStorage read/write works correctly
 - [ ] CRUD operations create/read/update/delete todos with correct IDs
+- [ ] No hydration mismatch warnings in console
 
 #### Test Plan
 - **Unit Tests**: storage.ts read/write/clear functions; useTodos hook CRUD operations; UUID generation uniqueness; default field values
-- **Manual Testing**: Verify project starts with `npm run dev`
+- **Manual Testing**: Verify project starts with `npm run dev`, no hydration errors
 
 #### Risks
 - **Risk**: localStorage mock complexity in tests
   - **Mitigation**: Use jsdom environment in Vitest with localStorage polyfill
+- **Risk**: SSR/hydration mismatch with localStorage
+  - **Mitigation**: Initialize with empty state, load from localStorage in useEffect after mount
 
 ---
 
@@ -97,19 +105,19 @@ Implement a Next.js 14+ Todo Manager with localStorage persistence and a Gemini 
 - Build the main todo list component with create/edit/delete functionality
 - Implement todo form (add/edit) with priority and due date fields
 - Display todos with status toggle, priority badges, and due dates
+- Use raw Tailwind CSS for all styling (no component library)
 
 #### Deliverables
 - [ ] TodoList component displaying all todos
-- [ ] TodoItem component with status toggle and delete
+- [ ] TodoItem component with status toggle, delete, and inline edit
 - [ ] AddTodoForm component with title, description, priority, due date
-- [ ] EditTodo inline editing capability
 - [ ] Main page wired up with all components
 
 #### Implementation Details
 
 **Files to create:**
 - `src/components/TodoList.tsx` — Renders list of TodoItem components
-- `src/components/TodoItem.tsx` — Single todo display with actions (toggle status, delete, edit)
+- `src/components/TodoItem.tsx` — Single todo display with actions (toggle status, delete, inline edit)
 - `src/components/AddTodoForm.tsx` — Form for creating new todos
 - `src/components/TodoItem.test.tsx` — Component tests
 - `src/components/AddTodoForm.test.tsx` — Form tests
@@ -117,16 +125,18 @@ Implement a Next.js 14+ Todo Manager with localStorage persistence and a Gemini 
 **Files to modify:**
 - `src/app/page.tsx` — Wire up components with useTodos hook
 
+All components use `"use client"` directive for interactivity.
+
 #### Acceptance Criteria
 - [ ] Can create a todo with title, priority, and optional due date
-- [ ] Can toggle todo status (pending ↔ completed)
+- [ ] Can toggle todo status (pending <-> completed)
 - [ ] Can delete a todo
 - [ ] Todos display priority as colored badge
 - [ ] Todos display due date when set
 - [ ] All tests pass
 
 #### Test Plan
-- **Unit Tests**: Component rendering, form submission, status toggle, delete action
+- **Unit Tests**: Component rendering with React Testing Library, form submission, status toggle, delete action
 - **Manual Testing**: Full CRUD flow in browser
 
 #### Risks
@@ -183,57 +193,66 @@ Implement a Next.js 14+ Todo Manager with localStorage persistence and a Gemini 
 
 #### Objectives
 - Create the Gemini API proxy route
-- Build the NL chat input component
+- Build the NL chat input component with loading, error, and disabled states
 - Implement NL response parsing and todo mutation execution
+- Wire NL `filter` action to UI filter state
 - Handle errors (API unavailable, malformed responses, timeouts)
 
 #### Deliverables
 - [ ] API route for Gemini proxy (`/api/chat`)
-- [ ] NL input component with loading/error states
+- [ ] NL input component with loading/error/disabled states
 - [ ] Gemini system prompt engineering for structured JSON responses
 - [ ] NL response parser and executor
 - [ ] Error handling for all failure modes
+- [ ] Toast/notification component for success/error feedback
 
 #### Implementation Details
 
 **Files to create:**
 - `src/app/api/chat/route.ts` — Next.js API route: receives { message, todos, currentDate }, calls Gemini, returns structured JSON
-- `src/lib/gemini.ts` — Gemini API client (system prompt, response parsing)
+- `src/lib/gemini.ts` — Gemini API client with model from `process.env.GEMINI_MODEL ?? "gemini-2.0-flash"`, system prompt, response parsing
 - `src/lib/nl-executor.ts` — Executes parsed NL actions against todo state
-- `src/components/NLInput.tsx` — Chat-style input with send button, loading spinner, response display
+- `src/components/NLInput.tsx` — Chat-style input with send button, loading spinner, response display. Shows "AI assistant unavailable" when disabled.
+- `src/components/Toast.tsx` — Simple toast notification component for success/error messages
 - `src/lib/__tests__/nl-executor.test.ts` — NL executor tests with mock responses
 - `src/lib/__tests__/gemini.test.ts` — Gemini client tests (response parsing, error handling)
-- `src/app/api/chat/__tests__/route.test.ts` — API route tests with mocked Gemini
 
 **Files to modify:**
-- `src/app/page.tsx` — Integrate NLInput component
-- `src/hooks/useTodos.ts` — Add executeNLAction method
+- `src/app/page.tsx` — Integrate NLInput component and Toast
+- `src/hooks/useTodos.ts` — Add `executeNLAction` method; wire `filter` action to update filter state in the UI
 
 **Gemini system prompt design:**
 - Instruct model to return JSON only
 - Define action schema with examples
 - Include current todos as context
-- Include current date for relative date resolution
+- Include current date (ISO 8601 from client) for relative date resolution (e.g., "due tomorrow")
 - Handle ambiguity with error action
+- Use `GEMINI_MODEL` env var with default `gemini-2.0-flash`
+
+**NL filter → UI integration:** When the NL executor receives a `filter` action, it updates the filter state in `useTodos` hook (same state FilterBar uses). This ensures "show me all high priority todos" visually filters the list.
+
+**Offline/AI unavailable UX:** The NLInput component checks for API availability. On error (missing key, timeout, 500), it shows an error toast and re-enables the input. If the API key is not configured, the NL input displays "AI assistant unavailable — configure GEMINI_API_KEY to enable".
+
+**Debounce:** NL input has a submit debounce (300ms) to prevent accidental double-sends during Gemini processing.
 
 #### Acceptance Criteria
 - [ ] "Add a todo to buy groceries with high priority" creates correct todo
-- [ ] "Show me all high priority todos" returns filter action
+- [ ] "Show me all high priority todos" updates UI filters to show only high priority
 - [ ] "Mark the grocery todo as done" updates correct todo
 - [ ] "Delete all completed todos" removes matching todos
-- [ ] API key missing → graceful error message
-- [ ] Gemini timeout → error toast, input re-enabled
+- [ ] API key missing → "AI assistant unavailable" message
+- [ ] Gemini timeout (10s) → error toast, input re-enabled
 - [ ] Malformed response → error message, no data corruption
 - [ ] Loading state shown during Gemini processing
 
 #### Test Plan
-- **Unit Tests**: NL executor with mock action payloads, Gemini response parser, API route with mocked fetch
+- **Unit Tests**: NL executor with mock action payloads (including filter→state), Gemini response parser, response validation
 - **Integration Tests**: Full NL flow: input → API route → parse → execute → state update (with mocked Gemini)
 - **Manual Testing**: Various NL inputs for all action types
 
 #### Risks
 - **Risk**: Gemini returns unexpected JSON structure
-  - **Mitigation**: Strict zod/manual validation of response shape; fallback to error message
+  - **Mitigation**: Strict validation of response shape; fallback to error message
 - **Risk**: Prompt injection via NL input
   - **Mitigation**: System prompt instructs JSON-only output; response validation prevents arbitrary execution
 
@@ -259,7 +278,7 @@ Implement a Next.js 14+ Todo Manager with localStorage persistence and a Gemini 
 **Files to create:**
 - `Dockerfile` — Multi-stage build for Next.js standalone output
 - `.dockerignore` — Exclude node_modules, .next, etc.
-- `README.md` — Project overview, setup, environment variables, deployment
+- `README.md` — Project overview, setup, environment variables (`GEMINI_API_KEY`, `GEMINI_MODEL`), deployment to Railway
 
 **Files to modify:**
 - `next.config.ts` — Add `output: "standalone"` for Docker deployment
@@ -269,7 +288,7 @@ Implement a Next.js 14+ Todo Manager with localStorage persistence and a Gemini 
 - [ ] `npm run build` succeeds
 - [ ] `npm run test` all pass
 - [ ] Dockerfile builds successfully
-- [ ] Environment variables documented (GEMINI_API_KEY, GEMINI_MODEL)
+- [ ] Environment variables documented (GEMINI_API_KEY, GEMINI_MODEL with default)
 - [ ] README covers local development and Railway deployment
 
 #### Test Plan
@@ -302,31 +321,48 @@ Linear dependency chain — each phase builds on the previous.
 ### Technical Risks
 | Risk | Probability | Impact | Mitigation |
 |------|------------|--------|------------|
+| SSR/hydration mismatch | Medium | Medium | Empty initial state, useEffect localStorage load |
 | Gemini response format instability | Medium | Medium | Strict validation, fallback error messages |
 | localStorage size limits | Low | Low | Warn at high todo count |
 | Next.js standalone build issues | Low | Medium | Follow official Docker docs |
 
 ## Validation Checkpoints
-1. **After Phase 1**: Project builds, tests pass, localStorage CRUD works
+1. **After Phase 1**: Project builds, tests pass, localStorage CRUD works, no hydration errors
 2. **After Phase 2**: Can create/toggle/delete todos in browser
 3. **After Phase 3**: Filtering works, responsive layout verified
-4. **After Phase 4**: NL commands work end-to-end (with real Gemini API)
+4. **After Phase 4**: NL commands work end-to-end (with real Gemini API), filter action updates UI
 5. **After Phase 5**: Docker build succeeds, deploy-ready
 
 ## Documentation Updates Required
 - [ ] README.md with setup instructions
 - [ ] Environment variable documentation
+- [ ] `.env.example` file
 
 ## Expert Review
 **Date**: 2026-02-17
-**Models Consulted**: Pending
-**Key Feedback**: TBD
+**Models Consulted**: Gemini Pro, GPT-5 Codex, Claude Opus
+**Key Feedback**:
+- Gemini: APPROVE — noted hydration mismatch risk, crypto.randomUUID() suggestion
+- Codex: REQUEST_CHANGES — GEMINI_MODEL usage, NL filter→UI wiring, offline UX
+- Claude: COMMENT — hydration strategy, test deps, toast system, debounce
+
+**Plan Adjustments**:
+- Added hydration strategy (empty init + useEffect load) to Phase 1
+- Added `@testing-library/react` and `@testing-library/jest-dom` to Phase 1 deps
+- Added `GEMINI_MODEL` env var with default `gemini-2.0-flash` in Phase 4
+- Added NL filter→UI filter state wiring in Phase 4
+- Added Toast component and offline/disabled UX for NLInput in Phase 4
+- Added `.env.example` file to Phase 1
+- Added debounce for NL input in Phase 4
+- Added `"use client"` directive notes throughout
+- Added hydration mismatch to risk table
 
 ## Approval
 - [ ] Technical Lead Review
-- [ ] Expert AI Consultation Complete
+- [x] Expert AI Consultation Complete
 
 ## Notes
 - Phases are deliberately linear for simplicity — each builds directly on the previous
 - Phase 4 (NL Interface) is the most complex and carries the most risk
 - All phases target atomic commits with passing tests
+- Raw Tailwind CSS used throughout (no component library) to keep dependencies minimal
