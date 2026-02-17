@@ -15,9 +15,15 @@ export function loadTodos(): Todo[] {
   }
 }
 
-export function saveTodos(todos: Todo[]): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+export function saveTodos(todos: Todo[]): { success: boolean; error?: string } {
+  if (typeof window === "undefined") return { success: true };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+    return { success: true };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to save todos";
+    return { success: false, error: message };
+  }
 }
 
 export function clearTodos(): void {

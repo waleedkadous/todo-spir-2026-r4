@@ -14,6 +14,7 @@ import { loadTodos, saveTodos } from "@/lib/storage";
 export function useTodos() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     status: "all",
     priority: "all",
@@ -28,7 +29,12 @@ export function useTodos() {
   // Persist to localStorage whenever todos change (after initial load)
   useEffect(() => {
     if (isLoaded) {
-      saveTodos(todos);
+      const result = saveTodos(todos);
+      if (!result.success) {
+        setStorageError(result.error ?? "Failed to save todos");
+      } else {
+        setStorageError(null);
+      }
     }
   }, [todos, isLoaded]);
 
@@ -108,6 +114,7 @@ export function useTodos() {
     filteredTodos,
     filters,
     isLoaded,
+    storageError,
     addTodo,
     updateTodo,
     deleteTodo,

@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { callGemini, isGeminiConfigured } from "@/lib/gemini";
 import { Todo } from "@/types/todo";
 
+export async function GET() {
+  return NextResponse.json({ available: isGeminiConfigured() });
+}
+
 export async function POST(request: NextRequest) {
   if (!isGeminiConfigured()) {
     return NextResponse.json(

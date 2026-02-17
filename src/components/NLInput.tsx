@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import {
   Todo,
   NLAction,
@@ -33,8 +33,16 @@ export function NLInput({
 }: NLInputProps) {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isAvailable, setIsAvailable] = useState<boolean | null>(null);
   const [lastResult, setLastResult] = useState<string | null>(null);
   const lastSubmitTime = useRef(0);
+
+  useEffect(() => {
+    fetch("/api/chat")
+      .then((r) => r.json())
+      .then((data) => setIsAvailable(data.available === true))
+      .catch(() => setIsAvailable(false));
+  }, []);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -104,6 +112,16 @@ export function NLInput({
     [input, isLoading, todos, filters, addTodo, updateTodo, deleteTodos, setFilters, onResult, onError]
   );
 
+  if (isAvailable === false) {
+    return (
+      <div className="bg-gray-50 border rounded-lg p-4 shadow-sm">
+        <p className="text-sm text-gray-500" data-testid="nl-unavailable">
+          AI assistant unavailable — configure GEMINI_API_KEY to enable
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white border rounded-lg p-4 shadow-sm">
       <form onSubmit={handleSubmit} className="flex gap-2">
@@ -113,12 +131,12 @@ export function NLInput({
           onChange={(e) => setInput(e.target.value)}
           placeholder='Try "Add a high priority todo to buy groceries" or "Show me completed todos"'
           className="flex-1 border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-          disabled={isLoading}
+          disabled={isLoading || isAvailable === null}
           aria-label="Natural language input"
         />
         <button
           type="submit"
-          disabled={isLoading || !input.trim()}
+          disabled={isLoading || !input.trim() || isAvailable === null}
           className="px-4 py-2 bg-purple-600 text-white rounded text-sm font-medium hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-purple-500"
         >
           {isLoading ? "Thinking..." : "Ask AI"}

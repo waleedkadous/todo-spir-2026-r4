@@ -14,6 +14,7 @@ export default function Home() {
     filteredTodos,
     filters,
     isLoaded,
+    storageError,
     addTodo,
     updateTodo,
     deleteTodo,
@@ -86,7 +87,14 @@ export default function Home() {
           onUpdate={updateTodo}
         />
       </div>
-      {toast && (
+      {storageError && (
+        <Toast
+          message={`Warning: ${storageError}`}
+          type="error"
+          onDismiss={() => {}}
+        />
+      )}
+      {toast && !storageError && (
         <Toast
           message={toast.message}
           type={toast.type}
