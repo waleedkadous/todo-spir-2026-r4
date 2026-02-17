@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.gitignore
+.env
+.env.local
+.env.production.local
+*.md
+Dockerfile
+.dockerignore
+.agent-farm
+.consult
+.builders
+codev
+.claude
