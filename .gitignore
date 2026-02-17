@@ -9,6 +9,16 @@ node_modules/
 
 # Build output
 dist/
+.next/
+out/
+
+# Environment
+.env
+.env.local
+.env.production.local
+
+# Next.js
+next-env.d.ts
 
 # OS files
 .DS_Store
