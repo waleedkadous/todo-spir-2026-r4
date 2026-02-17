@@ -1,0 +1,29 @@
+**Review Findings (ordered by severity)**
+
+1. Missing explicit implementation for `GEMINI_MODEL` configuration
+- Spec requires model `gemini-2.0-flash` configurable via `GEMINI_MODEL` env var. Plan only documents env vars in Phase 5 and doesn’t state using `GEMINI_MODEL` in `src/lib/gemini.ts`. This is a spec alignment gap.
+- Impact: Hard‑coded model risks noncompliance with spec and future upgrades.
+- Recommendation: Add a concrete step in Phase 4 to read `process.env.GEMINI_MODEL ?? "gemini-2.0-flash"` in `src/lib/gemini.ts` and cover in tests.
+
+2. NL “filter” action behavior not concretely integrated with UI state
+- Spec requires NL to support query/filtering. Plan defines `filter` action but doesn’t specify how that action affects UI (e.g., update `FilterBar` state, or render filtered results inline in NL response).
+- Impact: NL “Show me all high priority todos” could be parsed but not reflected in UI.
+- Recommendation: Add explicit behavior to `src/hooks/useTodos.ts` or `src/app/page.tsx` tying `filter` action to filter state; add tests in `src/lib/__tests__/nl-executor.test.ts`.
+
+3. Offline/“AI unavailable” UX not concretely specified in plan
+- Spec requires disabling NL input with a clear message when Gemini is unavailable. Plan mentions error handling but lacks a concrete implementation step for “AI assistant unavailable” UI state.
+- Impact: Possible spec drift for offline behavior.
+- Recommendation: Add a requirement in Phase 4 for `src/components/NLInput.tsx` to expose a disabled state based on API availability and show exact messaging.
+
+**Other Observations**
+- Task breakdown and ordering are solid and linear; good separation of core CRUD before NL.
+- Test strategy is comprehensive and aligns with spec scenarios, but ensure error handling tests include missing API key behavior as specified.
+- Architecture aligns with the approved Approach 1 (client storage + API proxy).
+
+---
+VERDICT: REQUEST_CHANGES  
+SUMMARY: Plan is solid but missing explicit model configurability, NL filter/UI integration, and concrete “AI unavailable” UX steps required by the spec.  
+CONFIDENCE: HIGH  
+---
+
+KEY_ISSUES: Missing `GEMINI_MODEL` usage; NL filter action not wired to UI; offline/AI unavailable UX not specified.

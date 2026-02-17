@@ -1,0 +1,23 @@
+**VERDICT**  
+Request changes.
+
+**SUMMARY**  
+Core flow is solid and tests cover basic parsing/execution, but there are a couple of runtime-safety gaps in the NL execution path and a date-handling bug that will yield wrong relative dates for many US users. The filter→UI wiring looks correct, and error handling is mostly consistent.
+
+**CONFIDENCE**  
+High.
+
+**KEY_ISSUES**
+1. **High — possible runtime crash on `update` actions without `updates`.**  
+`executeUpdate` passes `action.updates` straight to `updateTodo`. If Gemini returns an `update` without `updates` (or with `updates: null`), `useTodos.updateTodo` will read properties on `undefined` and throw. Add a guard for missing/invalid `updates` before calling `updateTodo`.  
+File: `src/lib/nl-executor.ts`
+
+2. **High — wrong “current date” for relative date parsing due to UTC.**  
+Both client and server use `new Date().toISOString().split("T")[0]`, which is UTC. For users in the US, this will often be one day ahead in the evening, causing “tomorrow/next week” to resolve incorrectly. Use local date (e.g., `toLocaleDateString("en-CA")` or construct from local components) before sending to Gemini.  
+Files: `src/components/NLInput.tsx`, `src/app/api/chat/route.ts`
+
+3. **Medium — invalid filter/status values can corrupt UI state.**  
+`parseGeminiResponse` validates only the `action` field. If Gemini returns invalid `status` or `priority`, `executeFilter` will set them into `filters`, which then drives `<select value=...>` with a value that doesn’t exist. This will cause inconsistent UI behavior. Consider validating allowed enum values before applying.  
+Files: `src/lib/gemini.ts`, `src/lib/nl-executor.ts`
+
+If you want, I can suggest concrete validation snippets for these.

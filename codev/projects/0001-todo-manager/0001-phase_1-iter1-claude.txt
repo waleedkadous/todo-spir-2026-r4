@@ -1,0 +1,90 @@
+
+
+I'll review the Phase 1 implementation by reading the spec and all relevant source files. Let me start by gathering everything.
+
+Now let me read all the key files in parallel.Now let me verify the tests actually pass and the build works:Now let me also check for the `.env.example` file that was listed in the plan:I now have a complete picture. Here's my review:
+
+---
+
+## **VERDICT: APPROVE**
+
+**CONFIDENCE: 95%**
+
+---
+
+### SUMMARY
+
+Phase 1 is a clean, well-structured implementation that faithfully follows both the spec and plan. All deliverables are present: Next.js 14 scaffolding with App Router, TypeScript types, localStorage persistence, `useTodos` hook, Vitest infrastructure, and ESLint config. **All 24 tests pass, the build succeeds, and lint is clean.** The hydration strategy is correctly implemented. The code is concise and idiomatic.
+
+---
+
+### DETAILED FINDINGS
+
+#### ✅ Spec Compliance (Full)
+
+| Deliverable | Status | Notes |
+|---|---|---|
+| Next.js 14 + TypeScript + App Router | ✅ | `next@^14.2.0`, `"use client"` on client components |
+| Todo types (`src/types/todo.ts`) | ✅ | All fields match spec data model exactly (id, title, description, priority, dueDate, status, createdAt) |
+| NL action types | ✅ | All 5 action types defined (add, update, delete, filter, error) — forward-looking for Phase 4 |
+| localStorage persistence (`src/lib/storage.ts`) | ✅ | load/save/clear with SSR guard (`typeof window`) |
+| `useTodos` hook | ✅ | Full CRUD + batch delete + toggle + filtering + localStorage sync |
+| Vitest + jsdom | ✅ | Configured with `@testing-library/react`, `jest-dom`, setup file |
+| Tailwind CSS | ✅ | Configured with correct content paths |
+| ESLint | ✅ | `next/core-web-vitals` extends, zero warnings |
+| `.env.example` | ✅ | Present with both `GEMINI_API_KEY` and `GEMINI_MODEL` |
+
+#### ✅ Hydration Safety (Correct)
+
+The hydration strategy is textbook:
+1. `useState<Todo[]>([])` — server and client both start with empty array → **no mismatch**
+2. `useEffect(() => { setTodos(loadTodos()); setIsLoaded(true); }, [])` — loads from localStorage **after** mount
+3. `isLoaded` guard prevents the save-effect from writing `[]` back to localStorage on first render (the race condition this prevents is exactly right)
+4. `storage.ts` functions all guard `typeof window === "undefined"` — safe if accidentally called during SSR
+
+#### ✅ Code Quality (High)
+
+- **Hook design**: All mutation functions are wrapped in `useCallback` with stable references (empty dependency arrays, using functional `setTodos(prev => ...)` correctly). `filteredTodos` is properly memoized with `useMemo`.
+- **Batch delete**: Uses `Set` for O(1) lookups — good performance decision.
+- **UUID**: `crypto.randomUUID()` — native, no external dependency, as the plan specified.
+- **Type design**: `AddTodoInput` and `UpdateTodoInput` are properly separated from `Todo` with appropriate optionality. `FilterState` supports "all" union cleanly.
+- **Storage layer**: Defensive — handles invalid JSON, non-array data, missing keys. Clean separation from hook logic.
+
+#### ✅ Test Coverage (Strong)
+
+**24 tests across 2 files covering:**
+
+| Area | Tests | Assessment |
+|---|---|---|
+| `loadTodos` | 4 | Empty, invalid JSON, non-array, valid — all error paths covered |
+| `saveTodos` | 2 | Normal save + empty array |
+| `clearTodos` | 1 | Removal verification |
+| `addTodo` | 4 | Defaults, all fields, unique IDs, prepend order |
+| `updateTodo` | 2 | Full update, partial update |
+| `deleteTodo` | 1 | Single deletion |
+| `deleteTodos` | 1 | Batch deletion |
+| `toggleStatus` | 2 | Both directions (pending→completed, completed→pending) |
+| Filtering | 4 | By status, by priority, combined, show-all |
+| Persistence | 1 | Verifies localStorage write after add |
+
+---
+
+### MINOR OBSERVATIONS (Non-blocking)
+
+These are notes for awareness, not change requests:
+
+1. **`page.tsx` is a static placeholder**: Shows "Loading..." but doesn't actually use the `useTodos` hook yet. This is fine — it's Phase 1 scaffolding, and Phase 2 will wire up components. The page is correctly marked `"use client"`.
+
+2. **No `dateRange` on `NLFilterAction`**: The spec mentions `dateRange` as a filter field, but the type only has `status`, `priority`, and `searchText`. This is a Phase 4 concern and can be addressed then, but worth tracking.
+
+3. **localStorage mock in test-setup.ts may be redundant**: jsdom (v25) ships with a working `localStorage` implementation. The mock overrides it. This works fine and doesn't cause issues — it just means the tests run against a slightly different localStorage implementation than what jsdom provides. Not a problem in practice.
+
+4. **No `.env.example` in `.gitignore`**: `.env.example` is meant to be committed, so this is correct behavior — just confirming it's intentional.
+
+5. **Vitest CJS deprecation warning**: `The CJS build of Vite's Node API is deprecated` — cosmetic warning from Vitest v2. Not actionable from the project's side; will resolve when Vitest updates internally.
+
+---
+
+### KEY ISSUES
+
+**None.** This is a solid Phase 1 that correctly establishes the data layer foundation for subsequent phases. The types are forward-compatible with the NL interface, the hydration strategy is sound, the hook API surface is complete for Phase 2's UI needs, and all tests pass.

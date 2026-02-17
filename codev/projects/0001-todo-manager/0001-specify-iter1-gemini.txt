@@ -1,0 +1,16 @@
+Reviewing `codev/specs/0001-todo-manager.md`:
+
+---
+VERDICT: APPROVE
+SUMMARY: Well-scoped and clear specification for a local-first, AI-enhanced todo app.
+CONFIDENCE: HIGH
+---
+
+KEY_ISSUES:
+- **Missing JSON Command Schema**: The spec mentions "structured JSON commands" (e.g., create, update, delete, filter) but doesn't define the expected schema. Providing a TypeScript interface for this response (e.g., `{ type: 'ADD_TODO', payload: { ... } }`) would significantly help the Builder and ensure the prompt matches the frontend handler.
+- **Todo ID Requirement**: The success criteria lists fields like title and status but omits a unique `id`. A stable ID (UUID/NanoID) is critical for the LLM to target specific todos for updates/deletions reliably.
+- **Multi-Tab Synchronization**: Since the app relies on `localStorage`, the spec should ideally mention listening to the `storage` event so changes in one tab reflect in others immediately, preventing data overwrite accidents.
+
+**Additional Notes:**
+- The decision to send the *entire* todo list context to Gemini on every request is acceptable for the "hundreds of todos" constraint but remains a scalability hard limit. The "soft limit warning" mentioned is a good mitigation.
+- "Next.js 14+" is specified; given Next.js 15 is available, "14+" covers it, but the Builder might default to the latest stable.

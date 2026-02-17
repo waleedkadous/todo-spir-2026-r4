@@ -1,0 +1,43 @@
+**Findings**
+1. Ambiguity: The spec requires “Next.js API route proxy” while also stating “no API routes that store state.” It’s unclear whether API routes are allowed at all, or only for proxying. Please clarify explicitly that API routes are permitted solely for Gemini proxying and do not persist state. (`codev/specs/0001-todo-manager.md`)
+2. Missing: The natural language command schema is not defined. You mention “structured JSON commands” but no explicit contract (fields, action types, error format, versioning). This is critical to implement reliably and to validate malformed responses. (`codev/specs/0001-todo-manager.md`)
+3. Missing: Conflict resolution and identity rules for NL updates/deletes are undefined. How to match “the grocery todo” when multiple items match? Should it prompt the user, choose the most recent, or error? (`codev/specs/0001-todo-manager.md`)
+4. Missing: Offline/online behavior for NL calls isn’t specified beyond “Gemini requires internet connectivity.” What does the UI do when offline or rate-limited: queue requests, show a toast, or disable the NL input? (`codev/specs/0001-todo-manager.md`)
+5. Testing gap: The test strategy lists functional scenarios but doesn’t specify test types (unit vs integration vs e2e), tooling choice (Jest vs Vitest), or where to mock Gemini. Also no deterministic fixtures for NL responses. (`codev/specs/0001-todo-manager.md`)
+
+**Clarity and Completeness**
+- Strengths: Clear stack, storage choice, and feature scope. Success criteria are enumerated and concrete.
+- Gaps: NL command schema, ambiguity handling policy, and API route allowance need explicit statements. The “undo” and “limit” assumptions are noted but not formally accepted/declared.
+
+**Technical Feasibility**
+- Feasible overall. LocalStorage + Next.js App Router + server-side API proxy is straightforward. Gemini integration is plausible.
+- Risk: “Gemini 3.0 Flash” availability and exact API shape should be verified during implementation, and the spec should allow model name to be configurable.
+
+**Edge Cases and Error Scenarios**
+- Multiple matching todos for update/delete not defined.
+- NL response malformed or incomplete: you mention validation, but no recovery behavior (retry? prompt? error toast?).
+- Date parsing: “due tomorrow” needs a timezone policy and locale handling.
+- localStorage quota errors not addressed.
+
+**Security Considerations**
+- API key handling is correctly constrained to server-side proxy, but you should explicitly forbid client-side key usage and ensure requests are not logged with sensitive data.
+- XSS: “React escaping” is good; still should specify sanitization for any rendered NL output.
+
+**Testing Strategy**
+- Missing definitions for test layers, mocking strategy for Gemini, and acceptance criteria per scenario.
+- No explicit tests for localStorage migration or schema changes.
+
+**Ambiguities or Missing Details**
+- NL command schema missing.
+- Matching rules for ambiguous references.
+- Error handling policies for Gemini failures/offline.
+- API route allowance clarity.
+- Limit handling and warning UX for localStorage.
+
+---
+VERDICT: REQUEST_CHANGES  
+SUMMARY: Solid high-level scope but missing critical NL command schema and ambiguity resolution, plus unclear API route policy and error handling.  
+CONFIDENCE: HIGH  
+---
+
+KEY_ISSUES: Define the NL command JSON contract; define ambiguity resolution/matching policy for updates/deletes; clarify API route allowance strictly for Gemini proxying; specify offline/error handling behavior for NL; define testing layers and Gemini mocking strategy.
