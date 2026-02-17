@@ -1,0 +1,27 @@
+VERDICT: APPROVE
+
+The PR delivers a robust, well-architected Todo Manager. The integration of Gemini for natural language commands is particularly well-handled with proper fallbacks, timeouts, and state management.
+
+### Key Strengths
+1.  **Resilient AI Integration**: `NLInput` and `src/lib/gemini.ts` handle availability checks, timeouts (10s), and error states gracefully. The system prompt in `gemini.ts` is well-engineered to enforce JSON schemas.
+2.  **Clean State Management**: `useTodos` correctly separates hydration (`isLoaded`) from persistence logic, avoiding common Next.js hydration mismatch errors with `localStorage`.
+3.  **Operations Ready**: The `Dockerfile` is correctly configured for `standalone` output (verified in `next.config.mjs`) and uses a non-root user (`nextjs`) for security.
+4.  **Accessibility**: `src/components` demonstrate good attention to a11y with `aria-label` usage on form inputs and control buttons.
+
+### Suggestions for Improvement (Non-Blocking)
+1.  **Runtime Validation for AI Outputs**:
+    While the system prompt instructs the AI to use specific enums (e.g., `priority: "low|medium|high"`), LLMs can occasionally hallucinate (e.g., returning "critical"). Currently, `src/lib/nl-executor.ts` passes these strings directly to the state.
+    *   **Risk**: `TodoItem.tsx` relies on `priorityColors[priority]`. An invalid key will result in unstyled badges.
+    *   **Fix**: In `nl-executor.ts`, validate `priority` and `status` against allowed values, falling back to a default (e.g., "medium") if the AI returns an unknown string.
+
+2.  **Scaling Considerations**:
+    *   **Context Window**: `src/lib/gemini.ts` sends the *entire* todo list to the AI on every request. For a personal list (<100 items), this is fine. For larger lists, consider truncating or summarizing the context to save tokens and latency.
+    *   **Sync Storage**: `saveTodos` writes synchronously to `localStorage` on every state change. If the list grows into the thousands, this could cause main-thread jank.
+
+### Implementation Verified
+-   [x] `next.config.mjs` enables `standalone` mode.
+-   [x] `Dockerfile` multi-stage build structure is correct.
+-   [x] `localStorage` usage is SSR-safe (`typeof window` checks).
+-   [x] API routes handle missing keys/timeouts appropriately.
+
+Great work on the implementation.

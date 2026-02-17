@@ -1,0 +1,61 @@
+
+
+I'll review this PR thoroughly by examining the actual codebase. Let me start by reading the key files.
+
+Now let me read a few specific files I want to inspect more closely for the review.Now let me check one more thing — the PR itself and the Dockerfile more carefully:I've now read every key file in the project. Here's my full review:
+
+---
+
+## VERDICT: APPROVE
+
+This is a clean, well-structured PR. The code is production-ready with only minor suggestions that don't warrant blocking. Here's the detailed breakdown:
+
+---
+
+### ✅ What's Done Well
+
+**Architecture & Design**
+- Clean separation of concerns: types, hooks, lib, components, API routes — all in the right places.
+- The `useTodos` hook is a well-designed state container. `useCallback`/`useMemo` usage is correct and appropriate. Hydration mismatch is handled properly (load in `useEffect`, render loading state until `isLoaded`).
+- The NL pipeline is thoughtfully layered: `NLInput` → API route → `gemini.ts` → `nl-executor.ts`. The executor is pure and testable, and the Gemini prompt is well-constrained.
+- `NLAction` union type + discriminated `action` field is idiomatic TypeScript.
+
+**Security**
+- API key stays server-side only (in `gemini.ts` via `process.env`, never exposed to the client). ✅
+- The API route validates input before passing to Gemini. ✅
+- `.env` and `.env.local` are in `.gitignore`. `.env.example` has no secrets. ✅
+- Dockerfile runs as non-root `nextjs` user. ✅
+
+**Reliability**
+- localStorage: SSR guard (`typeof window`), quota error handling with user-facing feedback, graceful fallback on corrupt data. Solid.
+- Gemini: 10-second abort timeout, markdown fence stripping, structured JSON validation, abort detection mapped to 504. All good.
+- `nl-executor.ts` validates todo IDs before operating — won't silently fail on stale/deleted IDs.
+- `parseGeminiResponse` validates the action field against an allowlist.
+
+**Testing**
+- 72 tests across 6 test files covering hooks, libs, and components. Good coverage of edge cases (empty title, invalid IDs, corrupt localStorage, markdown code fences in Gemini response).
+
+**Docker**
+- Multi-stage build, `standalone` output mode, `--ignore-scripts` for supply chain safety, non-root user. Textbook Next.js Dockerfile.
+
+---
+
+### 🟡 Non-Blocking Suggestions (take or leave)
+
+1. **`parseGeminiResponse` does shallow validation only.** It checks `action` is one of the five types but doesn't validate the shape of each action (e.g., `NLUpdateAction` should have `todoIds` and `updates`). The `nl-executor.ts` does guard against missing fields at runtime, so this isn't a hole — but a Zod schema or manual check in the parser would make the boundary tighter and catch malformed Gemini output earlier.
+
+2. **API key in URL query string** (`gemini.ts:66`). The API key is passed as `?key=` in the URL. This is how Google's REST API works, so it's correct — but be aware that URL-based keys can appear in server access logs and monitoring tools. If you later switch to `Authorization: Bearer` header auth (which the Gemini API also supports), it would be marginally cleaner. Low priority.
+
+3. **Client sends full todo list to the API** (`NLInput.tsx:64-65`). The entire `todos` array (including all IDs, titles, descriptions) is serialized in the POST body on every NL request. For a localStorage-scoped app this is fine, but worth noting if the app ever moves to multi-user — you'd want the server to own the data source rather than trusting the client payload.
+
+4. **Toast `onDismiss` in `useEffect` deps** (`Toast.tsx:15`). The `onDismiss` callback is `() => setToast(null)` created inline in `page.tsx`. This means every re-render of the parent creates a new function reference, which resets the 4-second timer. In practice this is barely noticeable because the toast is only shown briefly, but wrapping the dismiss handler in `useCallback` in `page.tsx` or using a ref inside Toast would be more correct.
+
+5. **No input length limit on NL input or todo fields.** A user could paste a very long string into the NL input, which would be sent to Gemini (wasting tokens) or into todo title/description (bloating localStorage). Consider a `maxLength` on the inputs or a validation cap.
+
+6. **`searchText` in `NLFilterAction` is defined in types but unused.** The type has `searchText?: string` (line 58 of `todo.ts`), the Gemini prompt doesn't mention it, and `nl-executor.ts` doesn't handle it. Dead code — either remove it or implement text search.
+
+---
+
+### Summary
+
+This is a well-executed feature PR. The architecture is sound, security basics are covered, error handling is thorough, and the test suite is comprehensive. The suggestions above are refinements, not blockers. Ship it.
