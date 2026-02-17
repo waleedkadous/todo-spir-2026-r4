@@ -46,6 +46,7 @@ export default function Home() {
         />
         <TodoList
           todos={filteredTodos}
+          totalCount={todos.length}
           onToggle={toggleStatus}
           onDelete={deleteTodo}
           onUpdate={updateTodo}
