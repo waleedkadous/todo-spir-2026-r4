@@ -28,9 +28,9 @@ No application exists. This is a greenfield project.
 ## Desired State
 
 A fully functional Next.js application deployed on Railway that:
-- Stores all todo data locally in the browser (no server-side database)
+- Stores all todo data locally in the browser (no server-side database). **Note**: Data does not sync across devices and will be lost if browser data is cleared.
 - Provides a traditional UI for CRUD operations on todos
-- Offers a natural language chat interface powered by Gemini 3.0 Flash
+- Offers a natural language chat interface powered by Gemini Flash
 - Supports filtering and complex queries through both UI and NL interface
 - Is production-ready with proper error handling and responsive design
 
@@ -41,9 +41,9 @@ A fully functional Next.js application deployed on Railway that:
 
 ## Success Criteria
 - [ ] Full CRUD operations on todos (create, read, update, delete)
-- [ ] Each todo has: title, description (optional), priority (low/medium/high), due date (optional), status (pending/completed), created timestamp
+- [ ] Each todo has: id (UUID), title, description (optional), priority (low/medium/high), due date (optional), status (pending/completed), createdAt timestamp
 - [ ] Filter todos by status (pending/completed/all) and priority (low/medium/high/all)
-- [ ] Natural language interface powered by Gemini 3.0 Flash
+- [ ] Natural language interface powered by Gemini Flash (model: `gemini-2.0-flash`)
 - [ ] NL interface handles: creating todos, querying/filtering, updating status, deleting, complex multi-condition queries
 - [ ] All data persists in browser localStorage
 - [ ] Responsive design works on desktop and mobile
@@ -52,13 +52,56 @@ A fully functional Next.js application deployed on Railway that:
 - [ ] All tests pass
 - [ ] No backend database required
 
+## Todo Data Model
+
+Each todo item has the following fields:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| id | string (UUID) | Yes | Unique identifier, generated on creation |
+| title | string | Yes | Short description of the task |
+| description | string | No | Optional detailed description |
+| priority | "low" \| "medium" \| "high" | Yes | Priority level, defaults to "medium" |
+| dueDate | string (ISO 8601) \| null | No | Optional due date |
+| status | "pending" \| "completed" | Yes | Current status, defaults to "pending" |
+| createdAt | string (ISO 8601) | Yes | Creation timestamp |
+
+## NL Command Schema
+
+The NL interface is **single-turn** — each message is independent with no conversational context carried between messages. The Gemini API receives the user's message plus the current todo list, and returns a structured JSON response.
+
+### Supported Operations
+
+The Gemini model returns a JSON object with an `action` field and operation-specific payload:
+
+| Action | Description | Key Payload Fields |
+|--------|-------------|-------------------|
+| `add` | Create a new todo | title, priority, dueDate, description |
+| `update` | Modify existing todo(s) | todoIds, updates (status, priority, dueDate, title) |
+| `delete` | Remove todo(s) | todoIds |
+| `filter` | Query/display todos | status, priority, dateRange, searchText |
+| `error` | Could not understand | message (explanation to user) |
+
+### Ambiguity Resolution
+
+When a user's NL input matches multiple todos (e.g., "mark the shopping todo as done" but there are two shopping-related todos):
+- The model should attempt a **best-effort match** using the most relevant todo
+- If truly ambiguous, return an `error` action with a message asking the user to be more specific
+- Matching uses title similarity and recency as tiebreakers
+
+### Batch Operations
+
+A single NL message may produce multiple operations (e.g., "delete all completed todos"). The response supports returning an array of todo IDs for batch update/delete operations.
+
 ## Constraints
 
 ### Technical Constraints
 - Next.js 14+ with App Router (not Pages Router)
 - TypeScript required throughout
-- Browser-only storage — no server-side database, no API routes that store state
-- Gemini 3.0 Flash for NL processing (requires API key via environment variable)
+- Browser-only storage — no server-side database
+- API routes are permitted **only** for proxying Gemini requests (no server-side state storage)
+- Gemini Flash for NL processing (requires `GEMINI_API_KEY` environment variable)
+- Model identifier: `gemini-2.0-flash` (configurable via environment variable `GEMINI_MODEL` to allow future model upgrades)
 - Must be deployable to Railway with zero additional infrastructure
 
 ### Business Constraints
@@ -70,12 +113,13 @@ A fully functional Next.js application deployed on Railway that:
 - The NL interface requires internet connectivity (Gemini API calls)
 - localStorage is sufficient for the expected data volume (single user, hundreds of todos max)
 - Modern browser support only (no IE11)
+- Date/time references in NL input (e.g., "due tomorrow") are interpreted relative to the user's local timezone, sent from the client
 
 ## Solution Approaches
 
 ### Approach 1: Client-Side with API Route Proxy (Recommended)
 
-**Description**: Next.js app with client-side todo storage in localStorage. A thin Next.js API route proxies NL requests to Gemini 3.0 Flash to keep the API key server-side. The Gemini model receives the user's NL input along with the current todo list context and returns structured JSON commands (create, update, delete, filter) that the client executes.
+**Description**: Next.js app with client-side todo storage in localStorage. A thin Next.js API route proxies NL requests to Gemini Flash to keep the API key server-side. The Gemini model receives the user's NL input along with the current todo list context and returns structured JSON commands that the client executes.
 
 **Pros**:
 - API key stays on server (secure)
@@ -126,11 +170,12 @@ A fully functional Next.js application deployed on Railway that:
 - [x] All critical questions answered by user requirements
 
 ### Important (Affects Design)
-- [ ] Should the NL interface support undo operations? (Assume: no, keep it simple)
-- [ ] Should there be a limit on todo count for localStorage? (Assume: soft limit warning at 1000)
+- [x] NL interaction model: **Single-turn** (each message independent, no conversation history)
+- [x] Ambiguity resolution: **Best-effort match** with fallback error message
+- [x] Gemini model: Use `gemini-2.0-flash` (configurable via env var)
 
 ### Nice-to-Know (Optimization)
-- [ ] Should todos support tags/categories? (Assume: not in v1, but architecture should allow future extension)
+- [ ] Should todos support tags/categories? (Assume: not in v1)
 
 ## Performance Requirements
 - **Initial Load**: < 2s on broadband
@@ -139,55 +184,91 @@ A fully functional Next.js application deployed on Railway that:
 - **Storage**: < 5MB localStorage usage
 
 ## Security Considerations
-- Gemini API key stored server-side only (via environment variable, proxied through API route)
+- Gemini API key stored server-side only (via environment variable, proxied through API route). Client-side key usage is explicitly forbidden.
 - No user authentication required (single-user local app)
 - XSS prevention through React's built-in escaping and input sanitization
+- NL output rendered as text only (no HTML rendering of Gemini responses)
 - No sensitive data stored (todos are personal, local-only)
+- Prompt injection risk: Low for personal todo app. Gemini system prompt instructs strict JSON-only output to mitigate.
 
 ## Test Scenarios
 
-### Functional Tests
-1. Create a todo with all fields (title, priority, due date) → appears in list
-2. Update a todo's status from pending to completed → reflected in UI
-3. Delete a todo → removed from list and localStorage
-4. Filter by status (pending only) → only pending todos shown
-5. Filter by priority (high only) → only high priority todos shown
-6. NL: "Add a todo to buy groceries with high priority due tomorrow" → creates correct todo
-7. NL: "Show me all high priority todos" → filters correctly
-8. NL: "Mark the grocery todo as done" → updates status
-9. NL: "Delete all completed todos" → removes matching todos
-10. NL: Handles ambiguous input gracefully → asks for clarification or best-effort match
+### Unit Tests
+1. Todo CRUD functions: create, read, update, delete against localStorage
+2. Filter logic: by status, by priority, combined filters
+3. Todo data model validation (required fields, defaults)
+4. NL response parsing and validation (valid JSON, known action types)
 
-### Non-Functional Tests
-1. Todos persist after page refresh (localStorage)
-2. App renders correctly on mobile viewport
-3. NL endpoint returns error gracefully when Gemini API key is missing
+### Integration Tests
+5. API route proxies request to Gemini correctly (mock Gemini responses)
+6. NL command execution: parsed response → correct todo mutations
+7. localStorage persistence: data survives simulated page refresh
+
+### Functional/E2E Tests
+8. Create a todo with all fields → appears in list
+9. Update a todo's status from pending to completed → reflected in UI
+10. Delete a todo → removed from list and localStorage
+11. Filter by status (pending only) → only pending todos shown
+12. Filter by priority (high only) → only high priority todos shown
+13. NL: "Add a todo to buy groceries with high priority due tomorrow" → creates correct todo
+14. NL: "Show me all high priority todos" → filters correctly
+15. NL: "Mark the grocery todo as done" → updates status
+16. NL: "Delete all completed todos" → removes matching todos
+
+### Error Handling Tests
+17. Gemini API key missing → graceful error message, traditional UI still works
+18. Gemini API timeout/500 error → user-facing error toast, NL input re-enabled
+19. Gemini returns malformed JSON → error message, no data corruption
+20. localStorage quota exceeded → warning message to user
 
 ## Dependencies
-- **External Services**: Google Gemini 3.0 Flash API
+- **External Services**: Google Gemini API (`gemini-2.0-flash`)
 - **Libraries/Frameworks**: Next.js 14+, React 18+, TypeScript, Tailwind CSS (styling)
-- **Development**: Jest/Vitest for testing, ESLint for linting
+- **Development**: Vitest for unit/integration tests, ESLint for linting
+
+## Offline/Error Behavior
+
+When the Gemini API is unavailable (offline, rate-limited, errored):
+- The NL input field shows a disabled state with message: "AI assistant unavailable"
+- All traditional UI functionality continues to work normally
+- On API error (timeout, 500, rate limit): show an error toast and re-enable the input for retry
+- No queuing of failed NL requests
 
 ## Risks and Mitigation
 | Risk | Probability | Impact | Mitigation Strategy |
 |------|------------|--------|-------------------|
 | Gemini API rate limits | Low | Medium | Debounce NL input, show loading states |
 | localStorage data loss (browser clear) | Medium | Medium | Clearly communicate local-only storage to user |
-| Gemini returns malformed JSON | Medium | Medium | Strict response validation, fallback error message |
+| Gemini returns malformed JSON | Medium | Medium | Strict response validation, error toast to user |
 | API key exposure | Low | High | Server-side proxy via Next.js API route |
+| Gemini API timeout | Low | Medium | 10s timeout, error toast, input re-enabled |
+| localStorage quota exceeded | Low | Low | Warning at high todo count |
+
+## References
+- [Gemini API Documentation](https://ai.google.dev/docs)
+- [Next.js App Router Documentation](https://nextjs.org/docs/app)
 
 ## Expert Consultation
 **Date**: 2026-02-17
-**Models Consulted**: Pending (will be run via porch verify)
-**Sections Updated**: TBD after consultation
+**Models Consulted**: Gemini Pro, GPT-5 Codex, Claude Opus
+**Sections Updated**:
+- **Todo Data Model**: Added explicit data model table with UUID id field (Gemini, Codex)
+- **NL Command Schema**: Added full section defining action types, payload fields, ambiguity resolution, and batch operations (all three)
+- **Constraints**: Clarified API routes allowed only for Gemini proxying, not state storage (Codex)
+- **Gemini Model**: Changed from "Gemini 3.0 Flash" to `gemini-2.0-flash` with configurable env var (Claude)
+- **Security**: Added prompt injection acknowledgment and explicit client-side key prohibition (Claude, Codex)
+- **Test Scenarios**: Restructured into unit/integration/functional/error layers with Gemini mock strategy (Codex, Claude)
+- **Offline/Error Behavior**: Added new section defining behavior when Gemini is unavailable (Codex)
+- **Desired State**: Added note about data not syncing across devices (Claude)
+- **NL Interaction Model**: Defined as single-turn with no conversation history (Claude)
 
 ## Approval
 - [ ] Technical Lead Review
 - [ ] Product Owner Review
 - [ ] Stakeholder Sign-off
-- [ ] Expert AI Consultation Complete
+- [x] Expert AI Consultation Complete
 
 ## Notes
 - The NL interface is the differentiating feature of this app. It must feel natural and handle edge cases gracefully.
-- Gemini 3.0 Flash is chosen for its speed and cost-effectiveness for real-time NL interactions.
+- Gemini Flash is chosen for its speed and cost-effectiveness for real-time NL interactions.
 - The app should degrade gracefully if Gemini API is unavailable (traditional UI still works).
