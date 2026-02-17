@@ -47,8 +47,19 @@ export function useTodos() {
   }, []);
 
   const updateTodo = useCallback((id: string, updates: UpdateTodoInput) => {
+    // Strip undefined values to prevent overwriting with undefined
+    const cleanUpdates: Partial<Todo> = {};
+    if (updates.title !== undefined) cleanUpdates.title = updates.title;
+    if (updates.description !== undefined)
+      cleanUpdates.description = updates.description;
+    if (updates.priority !== undefined) cleanUpdates.priority = updates.priority;
+    if (updates.dueDate !== undefined) cleanUpdates.dueDate = updates.dueDate;
+    if (updates.status !== undefined) cleanUpdates.status = updates.status;
+
     setTodos((prev) =>
-      prev.map((todo) => (todo.id === id ? { ...todo, ...updates } : todo))
+      prev.map((todo) =>
+        todo.id === id ? { ...todo, ...cleanUpdates } : todo
+      )
     );
   }, []);
 
