@@ -1,9 +1,12 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import { useTodos } from "@/hooks/useTodos";
 import { AddTodoForm } from "@/components/AddTodoForm";
 import { FilterBar } from "@/components/FilterBar";
 import { TodoList } from "@/components/TodoList";
+import { NLInput } from "@/components/NLInput";
+import { Toast } from "@/components/Toast";
 
 export default function Home() {
   const {
@@ -14,10 +17,31 @@ export default function Home() {
     addTodo,
     updateTodo,
     deleteTodo,
+    deleteTodos,
     toggleStatus,
     setStatusFilter,
     setPriorityFilter,
+    setFilters,
   } = useTodos();
+
+  const [toast, setToast] = useState<{
+    message: string;
+    type: "success" | "error";
+  } | null>(null);
+
+  const handleNLResult = useCallback(
+    (result: { success: boolean; message: string }) => {
+      setToast({
+        message: result.message,
+        type: result.success ? "success" : "error",
+      });
+    },
+    []
+  );
+
+  const handleNLError = useCallback((message: string) => {
+    setToast({ message, type: "error" });
+  }, []);
 
   if (!isLoaded) {
     return (
@@ -36,6 +60,16 @@ export default function Home() {
         Todo Manager
       </h1>
       <div className="space-y-4">
+        <NLInput
+          todos={todos}
+          filters={filters}
+          addTodo={addTodo}
+          updateTodo={updateTodo}
+          deleteTodos={deleteTodos}
+          setFilters={setFilters}
+          onResult={handleNLResult}
+          onError={handleNLError}
+        />
         <AddTodoForm onAdd={addTodo} />
         <FilterBar
           filters={filters}
@@ -52,6 +86,13 @@ export default function Home() {
           onUpdate={updateTodo}
         />
       </div>
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onDismiss={() => setToast(null)}
+        />
+      )}
     </main>
   );
 }
