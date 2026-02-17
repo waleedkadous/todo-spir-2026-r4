@@ -56,7 +56,7 @@ export function NLInput({
           body: JSON.stringify({
             message: input.trim(),
             todos,
-            currentDate: new Date().toISOString().split("T")[0],
+            currentDate: new Date().toLocaleDateString("en-CA"),
           }),
         });
 

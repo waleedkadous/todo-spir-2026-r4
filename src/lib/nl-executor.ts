@@ -75,6 +75,10 @@ function executeUpdate(
     return { success: false, message: "No todos specified for update." };
   }
 
+  if (!action.updates || typeof action.updates !== "object") {
+    return { success: false, message: "No update fields specified." };
+  }
+
   const validIds = action.todoIds.filter((id) =>
     todos.some((t) => t.id === id)
   );
@@ -120,14 +124,24 @@ function executeDelete(
   };
 }
 
+const VALID_STATUSES = ["all", "pending", "completed"];
+const VALID_PRIORITIES = ["all", "low", "medium", "high"];
+
 function executeFilter(
   action: NLFilterAction,
   setFilters: (filters: FilterState) => void,
   currentFilters: FilterState
 ): NLExecutionResult {
+  const status = VALID_STATUSES.includes(action.status ?? "")
+    ? action.status!
+    : currentFilters.status;
+  const priority = VALID_PRIORITIES.includes(action.priority ?? "")
+    ? action.priority!
+    : currentFilters.priority;
+
   const newFilters: FilterState = {
-    status: action.status ?? currentFilters.status,
-    priority: action.priority ?? currentFilters.priority,
+    status: status as FilterState["status"],
+    priority: priority as FilterState["priority"],
   };
 
   setFilters(newFilters);
