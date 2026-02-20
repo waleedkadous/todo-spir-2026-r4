@@ -1,0 +1,44 @@
+
+
+I'll review the Phase 3 files by reading them directly from disk. Let me start by finding and reading all relevant files.
+
+Now let me read all the Phase 3 files directly, plus the spec and plan for context.Now let me read the supporting files to understand the full context — the `useTodos` hook (where filter logic lives), the types, and any other components that interact with filtering.Now let me also check if there are existing hook tests that cover filter logic, and look at the test runner config to verify the test setup:I now have a thorough understanding of all the Phase 3 deliverables. Let me compile my review.
+
+---
+
+## **VERDICT: APPROVE**
+
+## **SUMMARY**
+
+Phase 3 (Filtering and Polish) is well-executed. The `FilterBar` component is clean, accessible, and correctly wired into the page. The filter logic in `useTodos` is properly memoized, the test coverage is solid across both the component and hook levels, and the integration in `page.tsx` is tidy. The implementation aligns with the spec and plan requirements. There are a few minor observations but nothing that warrants blocking.
+
+## **CONFIDENCE: 90%**
+
+## **KEY_ISSUES**
+
+### Issues (Non-blocking)
+
+1. **Empty state message doesn't differentiate "no todos at all" vs. "no todos match filter" (Minor)**
+   - `TodoList.tsx` (line 17-18) always shows *"No todos yet / Add your first todo above"* regardless of whether the empty state is caused by no todos existing or by filters hiding all results. The plan explicitly calls out: *"Empty state messaging"* as a deliverable, and the spec acceptance criterion says *"Empty state shown when no todos match filter."*
+   - **Recommendation**: When `todos.length > 0` but `filteredTodos.length === 0`, show something like *"No todos match the current filters"* with a "Clear filters" link. This could be done by passing a `hasFiltersApplied` or `totalCount` prop to `TodoList`, or by handling it in `page.tsx` above `<TodoList>`.
+
+2. **No "clear/reset filters" affordance (Minor)**
+   - Users can set filters via dropdowns but there's no quick way to reset both filters back to "all". This is low-effort UX polish that fits naturally in the FilterBar.
+
+3. **`globals.css` has no additional responsive styles (Observation)**
+   - The plan lists *"src/app/globals.css — Additional responsive styles"* as a file to modify, but it remains untouched (just the three Tailwind directives). In practice, the responsive behavior is handled entirely via Tailwind utility classes (`flex-wrap`, `sm:` breakpoints in `page.tsx`), which is perfectly valid — no custom CSS is needed. This is a plan deviation in letter but not in spirit.
+
+4. **"Visual polish (sorting, priority colors, overdue indicators)" partially delivered (Observation)**
+   - The plan deliverable mentions sorting, priority colors, and overdue indicators. Priority colors and sorting appear to be handled in Phase 2 components (`TodoItem`). Overdue indicators are not visible in any Phase 3 file. This may be acceptable as a v1 cut, but it's worth noting for completeness.
+
+5. **`FilterBar` count shows "0 todos" for zero state, not "0 of N" (Nitpick)**
+   - When `filteredCount === 0` and `totalCount > 0`, the display shows `"0 of 5"` which is correct. When `filteredCount === 0` and `totalCount === 0`, it shows `"0 todos"` — also correct. The singular/plural logic (`totalCount !== 1`) is properly handled. No issue here, just confirming it was verified.
+
+### What's Done Well
+
+- **Accessibility**: Both selects have `htmlFor`/`id` pairs linking labels, plus `aria-label` attributes. The tests query by `aria-label`, reinforcing accessible patterns.
+- **Type safety**: `FilterState` is a shared type from `todo.ts`, used consistently across the hook, component props, and page. The `as` cast on `e.target.value` is the standard pattern for select elements with known value sets.
+- **Performance**: `filteredTodos` uses `useMemo` keyed on `[todos, filters]` — correct dependency array, avoids unnecessary recomputation.
+- **Test quality**: 7 tests covering rendering, callbacks, state reflection, and count display edge cases (singular, filtered, unfiltered). The hook tests add 4 more filter-specific tests including combined filter logic. Total filter-related test coverage is strong.
+- **Integration**: `page.tsx` correctly passes `todos.length` for `totalCount` and `filteredTodos.length` for `filteredCount`, and threads the filter setters through as callbacks. The `isLoaded` guard prevents flash-of-empty-content.
+- **Responsive layout**: `flex-wrap` on the FilterBar handles narrow viewports, `ml-auto` pushes the count right on wider screens. Page uses `px-4 py-6 sm:py-8` and responsive heading sizes.

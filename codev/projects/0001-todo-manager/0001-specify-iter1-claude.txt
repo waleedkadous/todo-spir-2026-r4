@@ -1,0 +1,109 @@
+
+
+I'll start by reading the specification file directly from disk.Now let me check the project structure to understand the broader context — whether there's an existing codebase, a `package.json`, or any other specs referenced.Let me check the project status file and the spec template for context on what's expected.Now I have a thorough understanding of the spec, its template, and the project context. Let me write my review.
+
+---
+
+## Specification Review: 0001-todo-manager.md
+
+### Overall Assessment
+
+This is a well-structured, clearly written specification for a greenfield todo app with a natural language interface. It follows the template closely and covers most required sections. The problem statement is clear, the approach selection is well-reasoned, and the success criteria are concrete. That said, I have a few substantive issues and several minor observations.
+
+---
+
+### 1. Completeness
+
+**Strengths:**
+- All template sections are populated.
+- Clarifying questions are documented upfront — great for traceability.
+- Three solution approaches with clear trade-off analysis; the selected approach is well-justified.
+- Success criteria are specific and checkable.
+- Risk table is practical and covers the real risks.
+
+**Gaps:**
+
+- **Missing from template: `>90% test coverage` criterion.** The template suggests `All tests pass with >90% coverage`, but the spec only says "All tests pass." This is a minor gap — intentional simplification is fine, but it should be explicit if coverage targets are being dropped.
+
+- **Missing from template: `Documentation updated` criterion.** Not necessarily needed for a greenfield app, but worth noting.
+
+- **Missing: `References` section.** The template has a References section; the spec omits it entirely. For a greenfield project this is understandable, but a link to the Gemini API docs would be useful context for the builder.
+
+- **Missing: `Amendments` section.** Template includes it; spec omits it. Minor — can be added when needed.
+
+- **NL interface behavior underspecified for edge cases.** Test scenario #10 says "Handles ambiguous input gracefully → asks for clarification or best-effort match." But the spec never defines the **interaction model** for multi-turn clarification. Does the NL chat support conversational context (follow-up questions)? Or is every message independent? This is a critical design question that a builder will need to decide.
+
+- **No specification of the Gemini response schema.** The spec says Gemini returns "structured JSON commands (create, update, delete, filter)" — but never defines what those commands look like. While this is arguably a plan/implementation concern, the *types of operations* the NL interface must support are a spec concern. For instance: can the NL interface batch multiple operations in one response? Can it return "no action" with a conversational reply?
+
+### 2. Correctness
+
+**Strengths:**
+- The architecture choice (Approach 1: API route proxy) is correct and standard for this use case.
+- Constraint about no server-side state is consistent with the localStorage choice.
+- "No auth required" for single-user is internally consistent.
+
+**Issues:**
+
+- **"Gemini 3.0 Flash" — verify this model name exists.** As of my knowledge, Google offers Gemini 1.5 Flash and Gemini 2.0 Flash. "Gemini 3.0 Flash" may not exist yet or may be a misnomer. If the model doesn't exist, this spec has a fundamental feasibility problem. The builder should be told to use whatever the current fast Gemini model is, or the spec should pin to a known model (e.g., `gemini-2.0-flash`). **This is the most significant issue in the spec.**
+
+- **Railway deployment + "no backend database" + localStorage.** This is technically correct but worth noting: deploying a Next.js app on Railway when all data is in localStorage means the server component is really just serving the static app + proxying Gemini calls. This is fine but the spec should acknowledge that this means **data does not sync across devices or survive browser data clears** — it mentions this in the risks table but not in the user-facing success criteria or desired state.
+
+### 3. Feasibility
+
+**No blockers** (assuming the Gemini model name is resolved). The architecture is straightforward:
+- Next.js App Router with client-side localStorage ✓
+- API route as Gemini proxy ✓
+- Structured JSON response parsing ✓
+- Railway deployment ✓
+
+**One concern:** Sending the entire todo list as context to Gemini on each NL request (line 78) could hit token limits if a user has hundreds of todos. The spec acknowledges "hundreds of todos max" in assumptions and has a 1000-item soft warning in open questions. This is probably fine for v1, but the builder should be aware of the constraint.
+
+### 4. Security
+
+Adequately addressed for the scope:
+- API key server-side via proxy ✓
+- No auth needed (single-user) ✓
+- XSS prevention via React ✓
+
+**One addition I'd suggest:** The NL interface sends user text to Gemini. There's no mention of **prompt injection risks** — a user could craft NL input that manipulates the Gemini system prompt. For a personal todo app this is low risk, but worth a one-liner acknowledging it.
+
+### 5. Testing Strategy
+
+Good coverage of happy paths and basic edge cases. **Gaps:**
+
+- No test for **localStorage being full/unavailable** (e.g., private browsing mode in some browsers).
+- No test for **Gemini API timeout or error** beyond "API key missing." What happens when Gemini is slow (>3s) or returns a 500? The spec mentions graceful degradation in the Notes but doesn't include it as a test scenario.
+- No test for **concurrent NL requests** (user sends multiple messages quickly).
+
+### 6. Clarity
+
+The spec is clear and would give a builder a solid understanding of what to build. The one area that needs more clarity is the **NL interaction model** — see point under Completeness above.
+
+---
+
+### Summary of Issues
+
+| # | Issue | Severity |
+|---|-------|----------|
+| 1 | **"Gemini 3.0 Flash" may not be a real model** — verify and pin to an actual model identifier | 🔴 High |
+| 2 | NL interaction model undefined (single-turn vs. conversational, clarification flow) | 🟡 Medium |
+| 3 | NL command schema not specified (what structured JSON operations are expected) | 🟡 Medium |
+| 4 | No test scenario for localStorage unavailability or quota exceeded | 🟡 Medium |
+| 5 | No test scenario for Gemini API timeout/error (beyond missing key) | 🟠 Low-Medium |
+| 6 | Prompt injection risk unmentioned in security considerations | 🟠 Low |
+| 7 | Missing References section (link to Gemini API docs) | ⚪ Low |
+
+---
+
+```
+---
+VERDICT: REQUEST_CHANGES
+SUMMARY: Strong spec with one potential blocker (Gemini model name validity) and two medium-severity gaps in NL interface behavior definition.
+CONFIDENCE: HIGH
+---
+KEY_ISSUES:
+- "Gemini 3.0 Flash" may not be a valid model identifier — verify the actual Gemini model name and pin it in the spec. If this model doesn't exist, the builder will be blocked immediately.
+- The NL interaction model is undefined: is it single-turn (each message independent) or conversational (with context from previous messages)? This significantly affects architecture.
+- The structured JSON command schema that Gemini should return is not specified — the builder needs to know what operations are supported and what the response contract looks like (even at a high level, this is a WHAT concern, not a HOW concern).
+- Missing test scenarios for localStorage unavailability and Gemini API errors/timeouts.
+```

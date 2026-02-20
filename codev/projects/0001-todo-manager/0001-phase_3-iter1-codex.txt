@@ -1,0 +1,8 @@
+VERDICT: PASS (minor UX note)
+
+SUMMARY: Filter dropdowns are wired to state and reflect current filters correctly in `src/components/FilterBar.tsx`. Count display behaves as tested in `src/components/FilterBar.test.tsx`, and the responsive layout uses `flex-wrap` with sane spacing. Test coverage hits rendering, count text, change handlers, and controlled values; it does not cover option sets or filter-active/no-reduction edge cases.
+
+CONFIDENCE: medium
+
+KEY_ISSUES:
+1. Low: Count text is driven solely by `filteredCount === totalCount`, so if filters are active but don’t reduce results, it still shows “N todos” instead of “N of N,” which can obscure that filters are applied. Consider keying off filter state instead of counts in `src/components/FilterBar.tsx`.

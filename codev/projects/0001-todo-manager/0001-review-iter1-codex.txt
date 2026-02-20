@@ -1,0 +1,53 @@
+Below are the review findings ordered by severity, with file references.
+
+**Critical / High**
+1. **Spec gap: NL input is not disabled when Gemini is unavailable.**  
+   The spec’s Offline/Error Behavior requires the NL input to show a disabled state with the “AI assistant unavailable” message when the API key is missing. Current implementation only shows a toast *after* a failed submit; the input remains enabled and looks available.  
+   File: `src/components/NLInput.tsx`  
+   Impact: Spec noncompliance and confusing UX (users can type/submit endlessly).  
+   Fix idea: Add an availability flag (e.g., `/api/chat/status`), or have the page fetch once on mount and pass `isAvailable` to `NLInput` to disable input + show inline message.
+
+2. **Spec gap + potential crash: no localStorage quota/availability handling.**  
+   `saveTodos` can throw (quota exceeded or storage unavailable), and there is no catch or user warning. The spec explicitly calls for a warning on quota issues.  
+   File: `src/lib/storage.ts` (also `src/hooks/useTodos.ts` where it’s called)  
+   Impact: Unhandled exceptions during save can break the app and violate the error-handling requirements.  
+   Fix idea: Wrap `localStorage.setItem` in try/catch, return a status, and surface a warning (e.g., toast) on failure.
+
+**Medium**
+1. **UTC fallback for currentDate may still be wrong for US users if client omits it.**  
+   The route default is UTC date (`toISOString().split("T")[0]`), while spec requires local timezone. If the client fails to send `currentDate`, relative dates can shift by one day.  
+   File: `src/app/api/chat/route.ts`  
+   Suggestion: Use a local date format on server too, or require `currentDate` and reject missing.
+
+**Low**
+1. **Toast auto-dismiss timer re-arms on parent re-render.**  
+   `onDismiss` is passed inline in `page.tsx`, so `Toast`’s effect re-runs on any render. Likely benign but technically incorrect.  
+   Files: `src/components/Toast.tsx`, `src/app/page.tsx`
+
+2. **No API route tests.**  
+   There’s good unit coverage for parsing/execution, but no tests for `/api/chat` (e.g., 503/400/504 paths).  
+   File: `src/app/api/chat/route.ts`
+
+**Alignment With Spec/Plan**
+- Core CRUD, filtering, NL execution, proxy architecture, and deployment all align well.
+- The two critical gaps above are direct spec requirements (disabled NL input state; localStorage quota warning).
+
+**Test Coverage**
+- Strong unit coverage for storage, hook, components, and NL executor/parser.
+- Missing API route coverage and the localStorage quota error path.
+
+**Security**
+- API key is server-only via API route: good.
+- No obvious injection points (React rendering only).
+
+I did not run tests locally in this review.
+
+---
+VERDICT: REQUEST_CHANGES  
+SUMMARY: Solid implementation, but missing required NL unavailable disabled state and localStorage quota handling from the spec.  
+CONFIDENCE: HIGH  
+---
+
+KEY_ISSUES:
+- NL input is not disabled when Gemini is unavailable (spec requires disabled state + message). `src/components/NLInput.tsx`
+- localStorage quota/unavailability is not handled; `saveTodos` can throw without user warning (spec requires warning). `src/lib/storage.ts` / `src/hooks/useTodos.ts`

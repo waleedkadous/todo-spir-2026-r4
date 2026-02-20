@@ -1,0 +1,64 @@
+
+
+I'll review the Phase 2 implementation by reading all the specified files and the project spec. Let me start by gathering everything.
+
+Good, all files exist. Now let me read all the implementation files, test files, and the spec/plan documents.Now let me check the supporting files that the Phase 2 components depend on — the types and the `useTodos` hook:Now let me run the existing tests to verify they pass:All 43 tests pass. Now I have a complete picture. Let me compile my review.
+
+---
+
+## Phase 2 Review: Core Todo CRUD UI
+
+### VERDICT: **APPROVE**
+
+### CONFIDENCE: **92%**
+
+### SUMMARY
+
+Phase 2 is a clean, well-structured implementation that meets all its stated deliverables and acceptance criteria. The three components (`TodoItem`, `TodoList`, `AddTodoForm`) are properly decomposed, the page wiring is correct, all 43 tests pass (including 12 Phase-2-specific component tests), and the code aligns with the spec's data model and plan's requirements. The implementation is ready for Phase 3 (Filtering and Polish) to build on top of it.
+
+---
+
+### WHAT'S DONE WELL
+
+1. **Spec-compliant data model usage**: Components correctly use all Todo fields — `title`, `description` (optional display), `priority` (with colored badges), `dueDate` (conditional render), `status` (checkbox + strikethrough + opacity). Matches the spec table exactly.
+
+2. **Component decomposition follows the plan**: `TodoItem`, `TodoList`, `AddTodoForm` map 1:1 to the plan's "Files to create" list. `page.tsx` is modified (not created) as specified. All use `"use client"` directive as required.
+
+3. **Full CRUD coverage**: Create (AddTodoForm → `onAdd`), Read (TodoList renders all), Update (inline edit mode with Save/Cancel), Delete (delete button), Toggle status (checkbox). All acceptance criteria met.
+
+4. **Solid accessibility**: Every interactive element has an `aria-label`. The checkbox label dynamically reflects the todo title and current state. Edit-mode inputs have clear labels. This is above average for a Phase 2 implementation.
+
+5. **Good test coverage**: 12 component tests cover rendering, interactions (toggle, delete, edit, save, cancel), edge cases (no due date, no description, empty title guard, whitespace trimming), and form reset. Tests use `aria-label` and `data-testid` selectors appropriately.
+
+6. **State management discipline**: Components are presentational — all state mutations are delegated up via callbacks (`onToggle`, `onDelete`, `onUpdate`, `onAdd`). State lives in the `useTodos` hook as the plan prescribed. TodoItem's edit state is the only local state, which is appropriate.
+
+7. **Hydration strategy**: `page.tsx` correctly handles the `isLoaded` flag with a loading state, preventing hydration mismatch — consistent with Phase 1's design.
+
+---
+
+### OBSERVATIONS (Non-blocking)
+
+These are things worth knowing. None block approval.
+
+| # | Observation | Severity | Recommendation |
+|---|-------------|----------|----------------|
+| 1 | **No `TodoList.test.tsx`** — The plan lists tests for TodoItem and AddTodoForm, which exist. TodoList is thin (renders list + empty state), but there's no test for the empty state rendering or that it maps todos correctly. | Low | Consider adding 2-3 tests for TodoList (empty state render, renders N items, passes callbacks) in Phase 3 or as a follow-up. |
+| 2 | **Edit mode doesn't guard against empty title on save** — `handleSave` does `if (!editTitle.trim()) return;` which silently does nothing. No user feedback that the title can't be blank. | Low | Acceptable for Phase 2. Could add inline validation or a disabled Save button in Phase 3 polish. |
+| 3 | **`description` field inconsistency** — `AddTodoForm` sends `description: undefined` when empty, but `TodoItem` edit sends `description: ""`. The `useTodos` hook handles both correctly (`input.description ?? ""`), but the asymmetry could confuse future developers. | Low | Normalize to one convention. Both work today. |
+| 4 | **Due date display is raw ISO string** — `todo.dueDate` is rendered as-is (e.g., "2026-03-01"). The spec says `dueDate` is "string (ISO 8601) | null". This works but isn't user-friendly. | Low | Phase 3 polish could format dates more readably. The spec doesn't mandate a specific display format. |
+| 5 | **Priority badge test doesn't assert styling** — Test "renders high priority badge with correct styling" only checks text content `"high"`, not that the red styling class is applied. | Low | The test name over-promises. Either rename or add a class assertion. |
+
+---
+
+### KEY_ISSUES
+
+**None blocking.** All 6 Phase 2 acceptance criteria are met:
+
+- ✅ Can create a todo with title, priority, and optional due date
+- ✅ Can toggle todo status (pending ↔ completed)
+- ✅ Can delete a todo
+- ✅ Todos display priority as colored badge
+- ✅ Todos display due date when set
+- ✅ All tests pass (43/43)
+
+The implementation is solid, follows the plan faithfully, and provides a clean foundation for Phase 3 filtering work. The empty state in `TodoList` is already implemented (which the plan allocated to Phase 3), showing good forward thinking.
